@@ -1,16 +1,17 @@
 <template>
-  <form @submit.prevent="cloneRepo" class="flex gap-2">
-    <input v-model="repoUrl" type="text" placeholder="GitHub repository URL" class="flex-1 border rounded px-2 py-1" />
-    <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Clone</button>
+  <form @submit.prevent="cloneRepo" class="flex gap-2 items-center w-full min-w-80">
+    <Input v-model="repoUrl" type="text" placeholder="GitHub repository URL"/>
+    <Button type="submit" variant="default">Clone</Button>
   </form>
-  <div v-if="error" class="text-red-600 mt-2">{{ error }}</div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default defineComponent({
-  emits: ['repo-cloned'],
+  emits: ['repo-cloned', 'repo-error'],
   props: {
     checkRepoExists: Function,
     confirmOverwrite: Function
@@ -21,13 +22,13 @@ export default defineComponent({
     async function cloneRepo() {
       error.value = '';
       if (!repoUrl.value) {
-        error.value = 'Please enter a repository URL.';
+        emit('repo-error', 'Please enter a repository URL.');
         return;
       }
       let force = false;
       if (typeof props.checkRepoExists === 'function' && await props.checkRepoExists(repoUrl.value)) {
         if (!(typeof props.confirmOverwrite === 'function' && await props.confirmOverwrite(repoUrl.value))) {
-          error.value = 'Repository already exists. Cloning cancelled.';
+          emit('repo-error', 'Repository already exists. Cloning cancelled.');
           return;
         }
         force = true;
@@ -42,10 +43,10 @@ export default defineComponent({
         if (!data.success) throw new Error(data.error || 'Clone failed');
         emit('repo-cloned', { repoPath: data.repoPath, srcExists: data.srcExists });
       } catch (e: any) {
-        error.value = e.message;
+        emit('repo-error', e.message);
       }
     }
-    return { repoUrl, error, cloneRepo };
+    return { repoUrl, cloneRepo };
   }
 });
 </script>

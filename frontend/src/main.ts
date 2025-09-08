@@ -1,5 +1,55 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import './index.css';
+import { Button } from './components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card';
+import { Input } from './components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectItemText, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger, SelectValue } from './components/ui/select';
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import { Toast, ToastAction, ToastClose, ToastDescription, Toaster, ToastProvider, ToastTitle, ToastViewport } from './components/ui/toast';
 
-createApp(App).mount('#app');
+const app = createApp(App);
+
+// Register UI components globally
+app.component('Button', Button);
+app.component('Card', Card);
+app.component('CardContent', CardContent);
+app.component('CardDescription', CardDescription);
+app.component('CardFooter', CardFooter);
+app.component('CardHeader', CardHeader);
+app.component('CardTitle', CardTitle);
+app.component('Input', Input);
+app.component('Select', Select);
+app.component('SelectContent', SelectContent);
+app.component('SelectGroup', SelectGroup);
+app.component('SelectItem', SelectItem);
+app.component('SelectItemText', SelectItemText);
+app.component('SelectLabel', SelectLabel);
+app.component('SelectScrollDownButton', SelectScrollDownButton);
+app.component('SelectScrollUpButton', SelectScrollUpButton);
+app.component('SelectSeparator', SelectSeparator);
+app.component('SelectTrigger', SelectTrigger);
+app.component('SelectValue', SelectValue);
+app.component('Sheet', Sheet);
+app.component('SheetClose', SheetClose);
+app.component('SheetContent', SheetContent);
+app.component('SheetDescription', SheetDescription);
+app.component('SheetFooter', SheetFooter);
+app.component('SheetHeader', SheetHeader);
+app.component('SheetTitle', SheetTitle);
+app.component('SheetTrigger', SheetTrigger);
+app.component('Tabs', Tabs);
+app.component('TabsContent', TabsContent);
+app.component('TabsList', TabsList);
+app.component('TabsTrigger', TabsTrigger);
+app.component('Toast', Toast);
+app.component('ToastAction', ToastAction);
+app.component('ToastClose', ToastClose);
+app.component('ToastDescription', ToastDescription);
+app.component('Toaster', Toaster);
+app.component('ToastProvider', ToastProvider);
+app.component('ToastTitle', ToastTitle);
+app.component('ToastViewport', ToastViewport);
+
+app.mount('#app');

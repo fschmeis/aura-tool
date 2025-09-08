@@ -7,7 +7,7 @@ export function logAction(action: string, details?: any) {
   const entry = {
     timestamp: new Date().toISOString(),
     action,
-    ...(details ? { details } : {})
+    ...(details && typeof details === 'object' ? details : { details })
   };
   fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true });
   fs.appendFileSync(LOG_PATH, JSON.stringify(entry) + '\n');

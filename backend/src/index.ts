@@ -5,8 +5,6 @@ import lintRouter from './routes/lint';
 import llmRouter from './routes/llm';
 import logfileRouter from './routes/logfile';
 import reposRouter from './routes/repos';
-import openLogDirRouter from './routes/openlogdir';
-import openFolderRouter from './routes/openfolder';
 import listFoldersRouter from './routes/listfolders';
 
 const app = express();
@@ -17,8 +15,6 @@ app.use('/api/lint', lintRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/logfile', logfileRouter);
 app.use('/api/repos', reposRouter);
-app.use('/api/openlogdir', openLogDirRouter);
-app.use('/api/openfolder', openFolderRouter);
 app.use('/api/listfolders', listFoldersRouter);
 
 const PORT = process.env.PORT || 3001;

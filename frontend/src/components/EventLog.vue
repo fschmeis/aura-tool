@@ -1,22 +1,33 @@
 <template>
-  <aside class="w-80 min-h-screen flex flex-col bg-white border-r shadow p-4 text-xs">
-    <div class="flex items-center justify-between mb-2">
+  <div class="w-full text-xs h-full max-h-full flex flex-col">
+    <div class="flex items-center justify-between mb-2 gap-2">
       <h2 class="font-bold text-base text-blue-900">Event Log</h2>
-      <button @click="$props.onOpenLogfile" class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-200">Open Log</button>
+      <div class="flex gap-2">
+        <Button size="sm" variant="outline" @click="$props.onOpenLogfile()">Open Log</Button>
+        <Button size="sm" variant="destructive" @click="$props.onClearLog()">Clear Log</Button>
+      </div>
     </div>
     <div v-if="!events.length" class="text-gray-400">No events yet</div>
-    <ul class="flex-1 overflow-y-auto">
-      <li v-for="(event, i) in events" :key="i" class="mb-3 pb-2 border-b last:border-b-0">
-        <span class="block font-mono text-gray-700">{{ event.timestamp }}</span>
+  <ul class="flex-1 overflow-y-auto font-mono min-h-0">
+      <li v-for="(event, i) in events" :key="i" class="mb-3 pb-2 border-b last:border-b-0 flex flex-col gap-">
+        <div class="flex items-center gap-1">
+          <div>
+            <span v-if="event.type === 'success'" class="w-2.5 h-2.5 inline-block bg-green-500 rounded-full"></span>
+            <span v-else-if="event.type === 'error'" class="w-2.5 h-2.5 inline-block bg-red-500 rounded-full"></span>
+            <span v-else class="w-2.5 h-2.5 inline-block bg-blue-500 rounded-full"></span>
+          </div>
+          <span class="text-gray-500">{{ event.timestamp ? event.timestamp.slice(11, 19) : '' }}</span>
+        </div>
         <span :class="eventClass(event)">{{ event.message }}</span>
-        <div v-if="event.details" class="text-gray-500 break-all mt-1">{{ event.details }}</div>
+        <div v-if="event.details" class="text-gray-500 break-all mt-">{{ event.details }}</div>
       </li>
     </ul>
-  </aside>
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, PropType } from 'vue';
+import { Button } from '@/components/ui/button';
 
 export default defineComponent({
   props: {
@@ -25,6 +36,10 @@ export default defineComponent({
       required: true
     },
     onOpenLogfile: {
+      type: Function,
+      required: true
+    },
+    onClearLog: {
       type: Function,
       required: true
     }

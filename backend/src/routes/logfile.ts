@@ -11,4 +11,15 @@ router.get('/', (req, res) => {
   res.type('text/plain').send(content);
 });
 
+// Clear log file
+router.delete('/', (req, res) => {
+  const logPath = getLogFilePath();
+  try {
+    if (fs.existsSync(logPath)) fs.unlinkSync(logPath);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to clear log' });
+  }
+});
+
 export default router;

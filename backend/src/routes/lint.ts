@@ -11,10 +11,26 @@ router.post('/', (req, res) => {
   if (!repoPath) return res.status(400).json({ error: 'repoPath required' });
   const lintTarget = lintPath ? path.join(repoPath, lintPath) : path.join(repoPath, 'src');
   if (!fs.existsSync(lintTarget)) return res.status(400).json({ error: 'Lint target not found' });
-  const eslintConfigPath = path.join(__dirname, '../../.eslintrc.json');
-  const cmd = `npx eslint -c ${eslintConfigPath} --format json ${lintTarget}`;
-  logAction('lint-exec', { cmd, repoPath, lintTarget });
-  exec(cmd, (err, stdout) => {
+
+  // Copy or symlink backend eslint.config.mjs to repo root
+  const backendConfig = path.resolve(__dirname, '../../eslint.config.mjs');
+  const targetConfig = path.join(repoPath, 'eslint.config.mjs');
+  try {
+    if (fs.existsSync(targetConfig)) fs.unlinkSync(targetConfig);
+    try {
+      fs.symlinkSync(backendConfig, targetConfig);
+    } catch {
+      fs.copyFileSync(backendConfig, targetConfig);
+    }
+  } catch (e) {
+    const errMsg = (e instanceof Error) ? e.message : String(e);
+    logAction('lint-error', { error: 'Failed to copy/symlink eslint.config.mjs', details: errMsg });
+    return res.status(500).json({ error: 'Failed to copy/symlink eslint.config.mjs' });
+  }
+
+  const cmd = `npx eslint --format json src`;
+  logAction('lint-exec', { cmd, repoPath, lintTarget, cwd: repoPath });
+  exec(cmd, { cwd: repoPath }, (err, stdout) => {
     if (err && !stdout) {
       logAction('lint-error', { cmd, error: err.message });
       return res.status(500).json({ error: err.message });
