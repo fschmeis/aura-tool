@@ -66,6 +66,18 @@ export async function fetchLog() {
           details = entry.error || '';
           break;
         }
+        case 'llm-edit-prompt-success': {
+          type = 'success';
+          message = `Prompt editor opened successfully`;
+          details = entry.usedCommand ? `Used: ${entry.usedCommand}` : '';
+          break;
+        }
+        case 'llm-edit-prompt-error': {
+          type = 'error';
+          message = `Failed to open prompt editor`;
+          details = entry.error || '';
+          break;
+        }
         default: {
           // Show all other actions as info
           type = 'info';

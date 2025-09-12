@@ -1,0 +1,94 @@
+You are an expert in software maintainability and frontend architecture.  
+Analyze the following Vue 3 component code and evaluate:
+
+- **Lines of Code, not commented (LOC)**  
+- **Cyclomatic Complexity (CC)**  
+- **Cognitive Complexity (SSCC)**
+
+Provide your response in **structured JSON** (strict format, suitable for automatic parsing).  
+
+### 1. (Not commented) Lines of Code (NLOC)  
+Count **every line** in the given code, including template code. Exclude comments and empty lines.
+
+**Example:**  
+```ts
+// A simple function
+function foo() {
+  return 42;
+
+}
+```  
+NLOC = 3 (function signature, return, closing brace).
+
+---
+
+### 2. Cyclomatic Complexity (CC)  
+Measures the number of **linearly independent execution paths**.  
+Formula: `M = E - N + 2P` (McCabe, 1976).  
+
+Practical calculation: Start at **1**, then add **+1** for each control structure (`if`, `for`, `while`, `case`) and for each logical operator (`&&`, `||`).  
+
+**Example:**  
+```ts
+function classify(x: number, y: number): string {
+  if (x > 0 || y > 0) {
+    return "positive";
+  } else {
+    return "not positive";
+  }
+}
+```  
+CC = 3 (1 base +1 for `if` +1 for `||`).
+
+---
+
+### 3. Cognitive Complexity (SSCC)  
+Measures the **mental effort required to understand the code**. Defined by SonarSource in 2023.
+Unlike CC, it ignores shorthand that improves readability and penalizes **breaks in linear flow** and **nesting**.  
+
+**Basic rules:**  
+1. **Ignore shorthand** (e.g., method calls, null-coalescing operators).  
+2. **+1 for each break in linear flow** (if, loop, catch, switch, recursion, sequences of logical operators, jumps to labels).  
+3. **+ nesting increment for each nested flow-breaking structure** (e.g., `if` inside a `for` loop).  
+
+**Example 1:**  
+```ts
+function sum(arr: number[]): number {
+  let total = 0;
+  for (const n of arr) {   // +1 (loop)
+    if (n > 0) {           // +2 (branch, nested in loop)
+      total += n;
+    }
+  }
+  return total;
+}
+```  
+Cognitive Complexity = 2 (loop + branch, with nesting).
+
+**Example 2 (contrast to CC):**  
+```ts
+function classify(x: number, y: number): string {
+  if (x > 0 || y > 0) {  // +1 (if)
+    return "positive";
+  }
+  return "not positive";
+}
+```  
+- CC = 3 (base + if + logical operator)  
+- Cognitive Complexity = 1 (if only; logical operator sequence counts as one, no nesting penalty).  
+
+This shows why Cognitive Complexity often aligns better with human perception of code understandability.
+
+---
+
+Return your response in the following **strict JSON format**, with no extra text, no Markdown code fences, and no explanations:
+
+{
+  "component": "{{FILENAME}}",
+  "nloc": <integer>,
+  "cyclomatic_complexity": <integer>,
+  "cognitive_complexity": <integer>
+}
+Here is the code to analyze:
+
+{{CODE}}

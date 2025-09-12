@@ -28,7 +28,9 @@ router.post('/', (req, res) => {
     return res.status(500).json({ error: 'Failed to copy/symlink eslint.config.mjs' });
   }
 
-  const cmd = `npx eslint --format json src`;
+  // Use lintPath or default to 'src'
+  const relLintPath = lintPath || 'src';
+  const cmd = `npx eslint --format json "${relLintPath}"`;
   logAction('lint-exec', { cmd, repoPath, lintTarget, cwd: repoPath });
   exec(cmd, { cwd: repoPath }, (err, stdout) => {
     if (err && !stdout) {
