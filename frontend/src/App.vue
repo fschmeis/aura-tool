@@ -7,7 +7,7 @@
         <span class="text-xl font-bold">Aura Tool</span>
       </div>
       <div class="flex items-center gap-4">
-        <Select v-model="selectedRepo" @update:modelValue="onRepoSelect" class="min-w-[180px]">
+  <Select v-model="selectedRepo" @update:modelValue="setActiveRepo" class="min-w-[180px]">
           <SelectTrigger>
             <SelectValue placeholder="Select repository" />
           </SelectTrigger>
@@ -21,6 +21,7 @@
         </Select>
         <RepoInput @repo-cloned="onRepoCloned" @repo-error="onRepoError" :check-repo-exists="checkRepoExists"
           :confirm-overwrite="confirmOverwrite" />
+        <FolderInput @folder-added="onFolderAdded" @folder-error="onFolderError" />
       </div>
     </header>
 
@@ -35,23 +36,15 @@
 
       <!-- Main Content -->
       <main class="flex-1 min-h-0 overflow-hidden bg-gray-50 p-8">
-        <section class="flex flex-col flex-1 min-h-0 max-w-6xl mx-auto w-full">
-          <header class="mb-6">
-            <h1 class="text-2xl font-bold">Analysis</h1>
-            <p class="text-gray-600">
-              Run ESLint or LLM analysis, then view and compare the results.
-            </p>
-          </header>
-
-          <Tabs v-model="activeTab" class="flex flex-col flex-1 min-h-0">
-            <TabsList class="mb-6">
+  <section class="max-w-6xl mx-auto w-full">
+          <Tabs v-model="activeTab">
+            <TabsList>
               <TabsTrigger value="eslint">ESLint</TabsTrigger>
               <TabsTrigger value="llm">LLM</TabsTrigger>
-              <TabsTrigger value="compare">Compare</TabsTrigger>
             </TabsList>
 
             <!-- ESLint Tab -->
-            <TabsContent value="eslint" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <TabsContent value="eslint">
               <div class="mb-4 space-y-2">
                 <Select v-model="selectedFolder" :disabled="!repoPath || folders.length === 0" class="min-w-[220px]">
                   <SelectTrigger>
@@ -70,35 +63,41 @@
                   <Button :disabled="!repoPath || !selectedFolder" @click="runESLint">
                     Run ESLint
                   </Button>
-                  <Button :disabled="!lintResult && !lastLintResult" variant="secondary" @click="showLastLint">
-                    Show Last
-                  </Button>
+                    <Select v-model="selectedESLintHistoryId" :disabled="eslintHistory.length === 0" class="min-w-[200px]">
+                      <SelectTrigger>
+                        <SelectValue :placeholder="eslintHistory.length ? 'Select past run' : 'No history yet'" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem v-for="run in eslintHistory" :key="run.id" :value="run.id">
+                            {{ formatRunLabel(run) }}
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <!-- History selection auto-loads the run; Clear History button removed -->
+                    <Button variant="outline" @click="editESLintConfig">
+                      Edit ESLint Config
+                    </Button>
                   <span v-if="!repoPath" class="text-sm text-gray-400">
                     Select or clone a repo to enable analysis
                   </span>
                 </div>
               </div>
 
-              <div class="flex flex-col flex-1 min-h-0 border bg-white p-4 shadow-sm overflow-hidden">
-                <Tabs v-model="eslintViewMode" class="flex flex-col flex-1 min-h-0">
-                  <TabsList class="mb-4 flex-shrink-0">
-                    <TabsTrigger value="table">Table</TabsTrigger>
-                    <TabsTrigger value="json">JSON</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="table" class="flex flex-col flex-1 min-h-0">
-                    <ResultDisplay :lintResult="lintResult" viewMode="table" />
-                  </TabsContent>
-
-                  <TabsContent value="json" class="flex flex-col flex-1 min-h-0">
-                    <ResultDisplay :lintResult="lintResult" viewMode="json" />
-                  </TabsContent>
-                </Tabs>
+              <div>
+                <!-- Always show table view for ESLint -->
+                <ResultDisplay
+                  :lintResult="lintResult"
+                  viewMode="table"
+                  :resultLabel="eslintResultLabel"
+                  :isESLint="true"
+                />
               </div>
             </TabsContent>
 
             <!-- LLM Tab -->
-            <TabsContent value="llm" class="flex flex-col flex-1 min-h-0">
+            <TabsContent value="llm">
               <div class="mb-4 space-y-2">
                 <Select v-model="selectedFolder" :disabled="!repoPath || folders.length === 0" class="min-w-[220px]">
                   <SelectTrigger>
@@ -129,16 +128,23 @@
                     />
                   </div>
                   
-                  <div class="flex items-center gap-3">
-                    <Button v-if="!llmRunning" :disabled="!repoPath || !selectedFolder" @click="runLLM">
-                      Run LLM Analysis
+                  <div class="flex flex-wrap items-center gap-3">
+                    <Button :disabled="!repoPath || !selectedFolder || llmRunning" @click="runLLM">
+                      {{ llmRunning ? 'Running…' : 'Run LLM Analysis' }}
                     </Button>
-                    <Button v-else variant="destructive" @click="interruptLLM">
-                      Interrupt Analysis
-                    </Button>
-                    <Button :disabled="!llmResult && !lastLLMResult" variant="secondary" @click="showLastLLM">
-                      Show Last
-                    </Button>
+                    <Select v-model="selectedLLMHistoryId" :disabled="llmHistory.length === 0" class="min-w-[220px]">
+                      <SelectTrigger>
+                        <SelectValue :placeholder="llmHistory.length ? 'Select past run' : 'No history yet'" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem v-for="run in llmHistory" :key="run.id" :value="run.id">
+                            {{ formatRunLabel(run) }}
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <!-- History selection auto-loads the run; Clear History button removed -->
                     <Button :disabled="!repoPath" variant="secondary" @click="editPrompt">
                       Edit Prompt
                     </Button>
@@ -152,42 +158,17 @@
                 </div>
               </div>
 
-              <div class="flex flex-col flex-1 min-h-0 border bg-white p-4 shadow-sm overflow-hidden">
-                <Tabs v-model="llmViewMode" class="flex flex-col flex-1 min-h-0">
-                  <TabsList class="mb-4 flex-shrink-0">
-                    <TabsTrigger value="table">Table</TabsTrigger>
-                    <TabsTrigger value="json">JSON</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="table" class="flex flex-col flex-1 min-h-0">
-                    <ResultDisplay :llmResult="llmResult" viewMode="table" />
-                  </TabsContent>
-
-                  <TabsContent value="json" class="flex flex-col flex-1 min-h-0">
-                    <ResultDisplay :llmResult="llmResult" viewMode="json" />
-                  </TabsContent>
-                </Tabs>
+              <div>
+                <!-- Always show table view for LLM -->
+                <ResultDisplay
+                  :llmResult="llmResult"
+                  viewMode="table"
+                  :resultLabel="llmResultLabel"
+                  :isESLint="false"
+                />
               </div>
             </TabsContent>
 
-            <!-- Compare Tab -->
-            <TabsContent value="compare" class="flex flex-col flex-1 min-h-0">
-              <div class="flex flex-col flex-1 min-h-0 rounded border bg-white p-4 shadow-sm overflow-hidden">
-                <div class="flex-1 min-h-0 overflow-hidden">
-                  <ResultDisplay :lintResult="lintResult" :llmResult="llmResult" :viewMode="compareViewMode" compare />
-                </div>
-                <div class="mt-4 flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" :class="{ 'bg-gray-100': compareViewMode === 'table' }"
-                    @click="compareViewMode = 'table'">
-                    Table
-                  </Button>
-                  <Button size="sm" variant="outline" :class="{ 'bg-gray-100': compareViewMode === 'json' }"
-                    @click="compareViewMode = 'json'">
-                    JSON
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
           </Tabs>
         </section>
 
@@ -197,332 +178,314 @@
   </div>
 </template>
 
-<script lang="ts">
-
-import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
+<script setup lang="ts">
+import { ref, watch, computed } from 'vue';
 import RepoInput from './components/RepoInput.vue';
+import FolderInput from './components/FolderInput.vue';
 import EventLog from './components/EventLog.vue';
 import ResultDisplay from './components/ResultDisplay.vue';
 import { fetchLog, openLogfile } from './utils/logUtils';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectTrigger, SelectContent, SelectGroup, SelectItem, SelectValue } from '@/components/ui/select';
-export default defineComponent({
-  components: {
-    RepoInput,
-    EventLog,
-    ResultDisplay,
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-    Tabs,
-    TabsList,
-    TabsTrigger,
-    TabsContent,
-    Button,
-    Input,
-    Select,
-    SelectTrigger,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectValue
-  },
-  setup() {
-    async function clearLog() {
-      await fetch('/api/logfile', { method: 'DELETE' });
-      // No need to call updateEventLog, polling will update automatically
-    }
-    const repoPath = ref<string | null>(null);
-    const srcExists = ref<boolean>(false);
-    const lintResult = ref<any>(null);
-    const lastLintResult = ref<any>(null);
-    const llmResult = ref<any>(null);
-    const lastLLMResult = ref<any>(null);
-    const folders = ref<string[]>([]);
-    const selectedFolder = ref<string | null>(null);
+import { useResultsPersistence } from './composables/useResultsPersistence';
+import { useEventLog } from './composables/useEventLog';
+import { useLLMHistory } from './composables/useLLMHistory';
+import { useESLintHistory } from './composables/useESLintHistory';
+import type { LLMResult, ESLintResult } from './types/results';
 
-    async function fetchFolders() {
-      folders.value = [];
-      selectedFolder.value = null;
-      if (!repoPath.value) return;
-      try {
-        const res = await fetch('/api/listfolders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repoPath: repoPath.value })
-        });
-        const data = await res.json();
-        folders.value = data;
-        selectedFolder.value = data.length > 0 ? data[0] : null;
-      } catch {
-        folders.value = [];
-        selectedFolder.value = null;
-      }
-    }
+async function clearLog() {
+  await fetch('/api/logfile', { method: 'DELETE' });
+  // No need to call updateEventLog, polling will update automatically
+}
 
-    // Helper to get storage keys for a repo
-    function getLintKey(repoPath: string | null) {
-      return repoPath ? `aura-eslint-result-${repoPath}` : 'aura-eslint-result';
-    }
-    function getLastLintKey(repoPath: string | null) {
-      return repoPath ? `aura-eslint-last-result-${repoPath}` : 'aura-eslint-last-result';
-    }
-    function getLLMKey(repoPath: string | null) {
-      return repoPath ? `aura-llm-result-${repoPath}` : 'aura-llm-result';
-    }
-    function getLastLLMKey(repoPath: string | null) {
-      return repoPath ? `aura-llm-last-result-${repoPath}` : 'aura-llm-last-result';
-    }
+const repoPath = ref<string | null>(null);
+const lintResult = ref<ESLintResult | null>(null);
+const llmResult = ref<LLMResult | null>(null);
+const folders = ref<string[]>([]);
+const selectedFolder = ref<string | null>(null);
 
-    // Load persisted results for the current repo
-    function loadLintResultsForRepo(path: string | null) {
-      try {
-        const savedLint = localStorage.getItem(getLintKey(path));
-        const savedLastLint = localStorage.getItem(getLastLintKey(path));
-        const savedLLM = localStorage.getItem(getLLMKey(path));
-        const savedLastLLM = localStorage.getItem(getLastLLMKey(path));
-        lintResult.value = savedLint ? JSON.parse(savedLint) : null;
-        lastLintResult.value = savedLastLint ? JSON.parse(savedLastLint) : null;
-        llmResult.value = savedLLM ? JSON.parse(savedLLM) : null;
-        lastLLMResult.value = savedLastLLM ? JSON.parse(savedLastLLM) : null;
-      } catch {
-        lintResult.value = null;
-        lastLintResult.value = null;
-        llmResult.value = null;
-        lastLLMResult.value = null;
-      }
-    }
-
-    // Watch repoPath and load results when it changes
-    watch(repoPath, (newPath) => {
-      loadLintResultsForRepo(newPath);
-    }, { immediate: true });
-
-    // Persist results to localStorage per repo
-    watch([lintResult, repoPath], ([val, path]) => {
-      if (path) {
-        if (val) {
-          localStorage.setItem(getLintKey(path), JSON.stringify(val));
-        } else {
-          localStorage.removeItem(getLintKey(path));
-        }
-      }
+async function fetchFolders() {
+  if (!repoPath.value) { folders.value = []; selectedFolder.value = null; return; }
+  try {
+    const res = await fetch('/api/listfolders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath: repoPath.value })
     });
-    watch([lastLintResult, repoPath], ([val, path]) => {
-      if (path) {
-        if (val) {
-          localStorage.setItem(getLastLintKey(path), JSON.stringify(val));
-        } else {
-          localStorage.removeItem(getLastLintKey(path));
-        }
-      }
-    });
-    
-    // Persist LLM results to localStorage per repo
-    watch([llmResult, repoPath], ([val, path]) => {
-      if (path) {
-        if (val) {
-          localStorage.setItem(getLLMKey(path), JSON.stringify(val));
-        } else {
-          localStorage.removeItem(getLLMKey(path));
-        }
-      }
-    });
-    watch([lastLLMResult, repoPath], ([val, path]) => {
-      if (path) {
-        if (val) {
-          localStorage.setItem(getLastLLMKey(path), JSON.stringify(val));
-        } else {
-          localStorage.removeItem(getLastLLMKey(path));
-        }
-      }
-    });
-
-    const repos = ref<{ name: string; path: string }[]>([]);
-    const selectedRepo = ref<string | null>(null);
-    const eventLog = ref<any[]>([]);
-
-    // UI state for redesigned main area
-    const activeTab = ref<'eslint' | 'llm' | 'compare'>('eslint');
-    const eslintViewMode = ref<'table' | 'json'>('table');
-    const llmViewMode = ref<'table' | 'json'>('table');
-    const compareViewMode = ref<'table' | 'json'>('table');
-
-    // LLM specific state
-    const filePattern = ref<string>('*.ts,*.vue');
-    const excludePattern = ref<string>('*.test.ts,**/node_modules/**,**/dist/**');
-    const llmRunning = ref<boolean>(false);
-    const llmAbortController = ref<AbortController | null>(null);
-
-    async function fetchRepos() {
-      const res = await fetch('/api/repos');
-      repos.value = await res.json();
-      if (repos.value.length && !selectedRepo.value) {
-        selectedRepo.value = repos.value[0].path;
-        repoPath.value = repos.value[0].path;
+    if (!res.ok) {
+      console.warn('listfolders request failed status', res.status);
+      return;
+    }
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      folders.value = data;
+      if (!selectedFolder.value || !folders.value.includes(selectedFolder.value)) {
+        selectedFolder.value = folders.value[0] || null;
       }
     }
-    async function updateEventLog() {
-      eventLog.value = await fetchLog();
-    }
-    async function checkRepoExists(repoUrl: string) {
-      const repoName = repoUrl.split('/').pop()?.replace(/\.git$/, '') || 'repo';
-      const basePath = '/tmp/aura-tool';
-      const targetPath = basePath + '/' + repoName;
-      // Ask backend if folder exists
-      const res = await fetch('/api/repos');
-      const reposList = await res.json();
-      return reposList.some((r: any) => r.path === targetPath);
-    }
-    async function confirmOverwrite(repoUrl: string) {
-      return window.confirm('Repository already exists. Do you want to overwrite it? This will delete the previous clone.');
-    }
-    function onRepoCloned(payload: { repoPath: string; srcExists: boolean }) {
-      repoPath.value = payload.repoPath;
-      srcExists.value = payload.srcExists;
-      lintResult.value = null;
-      llmResult.value = null;
-      fetchRepos();
-      fetchFolders();
-      // No need to call updateEventLog, polling will update automatically
-    }
-    function onRepoSelect() {
-      const repo = repos.value.find(r => r.path === selectedRepo.value);
-      if (repo) repoPath.value = repo.path;
-      fetchFolders();
-    }
-    function onLintResult(result: any) {
-      lintResult.value = result;
-    }
-    function onLLMResult(result: any) {
-      llmResult.value = result;
-    }
-    function onRepoError(msg: string) {
-      // No need to call updateEventLog, polling will update automatically
-    }
+  } catch (e) {
+    console.warn('Failed to load folders', e);
+  }
+}
 
-    async function runESLint() {
-      if (!repoPath.value || !selectedFolder.value) return;
-      try {
-        // Save current result as last before running new
-        if (lintResult.value) {
-          lastLintResult.value = JSON.parse(JSON.stringify(lintResult.value));
-        } else if (!lastLintResult.value) {
-          lastLintResult.value = null;
-        }
-        const res = await fetch('/api/lint', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repoPath: repoPath.value, lintPath: selectedFolder.value })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        lintResult.value = data;
-      } catch (e: any) {
-        lintResult.value = { error: e.message };
-      }
-    }
+const { load: loadResults } = useResultsPersistence(
+  repoPath,
+  lintResult,
+  llmResult
+);
 
-    function showLastLint() {
-      // Always allow toggling if there is a lintResult
-      const tmp = lintResult.value;
-      lintResult.value = lastLintResult.value;
-      lastLintResult.value = tmp;
-    }
-    async function runLLM() {
-      if (!repoPath.value || !selectedFolder.value || llmRunning.value) return;
-      
-      try {
-        // Save current result as last before running new
-        if (llmResult.value) {
-          lastLLMResult.value = JSON.parse(JSON.stringify(llmResult.value));
-        } else if (!lastLLMResult.value) {
-          lastLLMResult.value = null;
-        }
-        
-        // Set up abort controller and running state
-        llmRunning.value = true;
-        llmAbortController.value = new AbortController();
-        
-        const res = await fetch('/api/llm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            repoPath: repoPath.value,
-            srcPath: selectedFolder.value,
-            filePattern: filePattern.value,
-            excludePattern: excludePattern.value
-          }),
-          signal: llmAbortController.value.signal
-        });
-        
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        llmResult.value = data;
-      } catch (e: any) {
-        if (e.name === 'AbortError') {
-          // Analysis was interrupted - don't overwrite result, just log
-          console.log('LLM analysis was interrupted');
-        } else {
-          llmResult.value = { error: e.message };
-        }
-      } finally {
-        llmRunning.value = false;
-        llmAbortController.value = null;
-      }
-    }
+// Watch repoPath and load results + folders when it changes
+watch(repoPath, (newVal, oldVal) => {
+  loadResults();
+  if (newVal && newVal !== oldVal) {
+    fetchFolders();
+  }
+  // If no folder selected yet but folders already present (e.g. loaded earlier), ensure selection
+  if (folders.value.length && !selectedFolder.value) {
+    selectedFolder.value = folders.value[0];
+  }
+}, { immediate: true });
 
-    function interruptLLM() {
-      if (llmAbortController.value) {
-        llmAbortController.value.abort();
-      }
-    }
+// Persistence watchers moved inside useResultsPersistence
 
-    function showLastLLM() {
-      // Always allow toggling if there is a llmResult
-      const tmp = llmResult.value;
-      llmResult.value = lastLLMResult.value;
-      lastLLMResult.value = tmp;
-    }
+const repos = ref<{ name: string; path: string }[]>([]);
+const selectedRepo = ref<string | null>(null);
+const { events: eventLog } = useEventLog();
 
-    async function editPrompt() {
-      try {
-        const res = await fetch('/api/llm/edit-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
-        // Don't throw error even if data.error exists - the event log will handle it
-        // The editor might have opened successfully even if there was a "command failed" message
-      } catch (e: any) {
-        // Silently fail - errors are tracked in the event log
-        console.log('Edit prompt request completed');
-      }
-    }
+function setActiveRepo(val: string | null) {
+  if (!val) {
+    selectedRepo.value = null;
+    repoPath.value = null;
+    folders.value = [];
+    selectedFolder.value = null;
+    localStorage.removeItem('aura-tool-last-repo');
+    return;
+  }
+  // If same repo reselected, still refresh folders
+  selectedRepo.value = val;
+  repoPath.value = val;
+  localStorage.setItem('aura-tool-last-repo', val);
+  fetchFolders();
+  loadResults();
+  loadESLintHistory();
+}
 
-    let logInterval: any = null;
-    onMounted(() => {
-      fetchRepos();
-      updateEventLog();
-      logInterval = setInterval(updateEventLog, 1000); // Poll every 1s for immediacy
-    });
-    onUnmounted(() => {
-      if (logInterval) clearInterval(logInterval);
-    });
-    return {
-      repoPath, srcExists, lintResult, lastLintResult, llmResult, lastLLMResult, onRepoCloned, onLintResult, onLLMResult, repos, selectedRepo, onRepoSelect, eventLog, openLogfile, checkRepoExists, confirmOverwrite, onRepoError, clearLog,
-      // new UI state and handlers
-      activeTab, eslintViewMode, llmViewMode, compareViewMode, runESLint, runLLM, showLastLint, showLastLLM,
-      folders, selectedFolder,
-      // LLM specific
-      filePattern, excludePattern, llmRunning, interruptLLM, editPrompt
-    };
+// UI state for redesigned main area
+const activeTab = ref<'eslint' | 'llm'>('eslint');
+
+const eslintResultLabel = computed(() => {
+  if (selectedESLintHistoryId.value) {
+    const run = eslintHistory.value.find(r => r.id === selectedESLintHistoryId.value);
+    if (run) return `Loaded from History (${formatRunLabel(run)})`;
+  }
+  if (lintResult.value && lintResult.value.results && lintResult.value.results.length) {
+    return 'Current Analysis';
+  }
+  return '';
+});
+
+const llmResultLabel = computed(() => {
+  if (selectedLLMHistoryId.value) {
+    const run = llmHistory.value.find(r => r.id === selectedLLMHistoryId.value);
+    if (run) return `Loaded from History (${formatRunLabel(run)})`;
+  }
+  if (llmResult.value && llmResult.value.results && llmResult.value.results.length) {
+    return 'Current Analysis';
+  }
+  return '';
+});
+
+// LLM specific state
+const filePattern = ref<string>('*.ts,*.vue');
+const excludePattern = ref<string>('*.test.ts,**/node_modules/**,**/dist/**');
+const llmRunning = ref<boolean>(false);
+const { history: llmHistory, add: addLLMHistoryRun, clear: clearLLMHistory } = useLLMHistory(repoPath as any);
+const selectedLLMHistoryId = ref<string | null>(null);
+const { history: eslintHistory, add: addESLintHistoryRun, clear: clearESLintHistory, load: loadESLintHistory } = useESLintHistory(repoPath as any);
+const selectedESLintHistoryId = ref<string | null>(null);
+
+watch(repoPath, () => { loadESLintHistory(); }, { immediate: true });
+
+function loadSelectedESLintHistory() {
+  if (!selectedESLintHistoryId.value) return;
+  const run = eslintHistory.value.find(r => r.id === selectedESLintHistoryId.value);
+  if (run) {
+    lintResult.value = JSON.parse(JSON.stringify(run.results));
+  }
+}
+
+// Auto-load when user selects a history item (replaces explicit Load Run button)
+watch(selectedESLintHistoryId, (newVal, oldVal) => {
+  if (newVal && newVal !== oldVal) {
+    loadSelectedESLintHistory();
   }
 });
+
+function formatRunLabel(run: any) {
+  const d = new Date(run.timestamp);
+  return d.toLocaleString();
+}
+function loadSelectedLLMHistory() {
+  if (!selectedLLMHistoryId.value) return;
+  const run = llmHistory.value.find(r => r.id === selectedLLMHistoryId.value);
+  if (run) {
+    llmResult.value = JSON.parse(JSON.stringify(run.results));
+  }
+}
+
+watch(selectedLLMHistoryId, (newVal, oldVal) => {
+  if (newVal && newVal !== oldVal) {
+    loadSelectedLLMHistory();
+  }
+});
+
+async function fetchRepos() {
+  const res = await fetch('/api/repos');
+  repos.value = await res.json();
+  
+  // Try to restore last selected repo from localStorage
+  const lastSelectedRepo = localStorage.getItem('aura-tool-last-repo');
+  const repoExists = lastSelectedRepo && repos.value.some(repo => repo.path === lastSelectedRepo);
+  
+  if (repoExists) {
+    setActiveRepo(lastSelectedRepo);
+  } else if (repos.value.length && !selectedRepo.value) {
+    // Auto-select the first repo and trigger all related loading
+    setActiveRepo(repos.value[0].path);
+  }
+}
+async function updateEventLog() {
+  eventLog.value = await fetchLog();
+}
+async function checkRepoExists(repoUrl: string) {
+  const repoName = repoUrl.split('/').pop()?.replace(/\.git$/, '') || 'repo';
+  const basePath = '/tmp/aura-tool';
+  const targetPath = basePath + '/' + repoName;
+  // Ask backend if folder exists
+  const res = await fetch('/api/repos');
+  const reposList = await res.json();
+  return reposList.some((r: any) => r.path === targetPath);
+}
+async function confirmOverwrite(repoUrl: string) {
+  return window.confirm('Repository already exists. Do you want to overwrite it? This will delete the previous clone.');
+}
+function onRepoCloned(payload: { repoPath: string; srcExists: boolean }) {
+  repoPath.value = payload.repoPath;
+  lintResult.value = null;
+  llmResult.value = null;
+  fetchRepos();
+  fetchFolders();
+  // No need to call updateEventLog, polling will update automatically
+}
+
+function onFolderAdded(payload: { folderPath: string; name: string }) {
+  repoPath.value = payload.folderPath;
+  lintResult.value = null;
+  llmResult.value = null;
+  fetchRepos();
+  fetchFolders();
+}
+
+function onFolderError(msg: string) {
+  console.error('Folder error:', msg);
+  // Error handling - could show toast or similar
+}
+
+// onRepoSelect removed in favor of setActiveRepo
+function onRepoError(msg: string) {
+  // No need to call updateEventLog, polling will update automatically
+}
+
+async function runESLint() {
+  if (!repoPath.value || !selectedFolder.value) return;
+  try {
+    const res = await fetch('/api/lint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath: repoPath.value, lintPath: selectedFolder.value })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    lintResult.value = data;
+    if (lintResult.value) addESLintHistoryRun(lintResult.value);
+  } catch (e: any) {
+    lintResult.value = { results: [], topRules: [], error: e.message };
+  }
+}
+async function runLLM() {
+  if (!repoPath.value || !selectedFolder.value || llmRunning.value) return;
+
+  try {
+    llmRunning.value = true;
+    const res = await fetch('/api/llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        repoPath: repoPath.value,
+        srcPath: selectedFolder.value,
+        filePattern: filePattern.value,
+        excludePattern: excludePattern.value
+      })
+    });
+    const data = await res.json();
+    console.log('LLM backend response:', data);
+    let normalized = null;
+    if (data.error) throw new Error(data.error);
+    if (data && Array.isArray(data.results)) {
+      normalized = { ...data, results: data.results };
+    } else if (data && data.data && Array.isArray(data.data.results)) {
+      normalized = { ...data.data, results: data.data.results };
+    } else if (Array.isArray(data)) {
+      normalized = { results: data };
+    } else {
+      normalized = { results: [], error: 'Unexpected LLM response format', raw: data };
+    }
+    // Defensive: always ensure results is an array
+    if (!Array.isArray(normalized.results)) {
+      normalized.results = [];
+    }
+    llmResult.value = normalized;
+    console.log('Assigned llmResult:', llmResult.value);
+    if (llmResult.value) {
+      addLLMHistoryRun(JSON.parse(JSON.stringify(llmResult.value)));
+      selectedLLMHistoryId.value = llmHistory.value[0]?.id || null;
+    }
+  } catch (e: any) {
+    llmResult.value = { results: [], error: e.message } as LLMResult;
+    console.error('LLM error:', e);
+  } finally {
+    llmRunning.value = false;
+  }
+}
+
+async function editPrompt() {
+  try {
+    const res = await fetch('/api/llm/edit-prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    // Don't throw error even if data.error exists - the event log will handle it
+    // The editor might have opened successfully even if there was a "command failed" message
+  } catch (e: any) {
+    // Silently fail - errors are tracked in the event log
+    console.log('Edit prompt request completed');
+  }
+}
+
+async function editESLintConfig() {
+  try {
+    const res = await fetch('/api/eslint-config/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    // Don't throw error even if data.error exists - the event log will handle it
+    console.log('Edit ESLint config request completed');
+  } catch (e: any) {
+    // Silently fail - errors are tracked in the event log
+    console.log('Edit ESLint config request completed');
+  }
+}
+
+// Event log polling handled by useEventLog; just fetch repos initially
+fetchRepos();
 </script>

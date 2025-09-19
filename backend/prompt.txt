@@ -85,9 +85,9 @@ Return your response in the following **strict JSON format**, with no extra text
 
 {
   "component": "{{FILENAME}}",
-  "nloc": <integer>,
-  "cyclomatic_complexity": <integer>,
-  "cognitive_complexity": <integer>
+  "nloc": <number>,
+  "cyclomatic_complexity": <number>,
+  "cognitive_complexity": <number>
 }
 Here is the code to analyze:
 

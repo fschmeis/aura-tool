@@ -12,27 +12,21 @@ router.post('/', (req, res) => {
   const lintTarget = lintPath ? path.join(repoPath, lintPath) : path.join(repoPath, 'src');
   if (!fs.existsSync(lintTarget)) return res.status(400).json({ error: 'Lint target not found' });
 
-  // Copy or symlink backend eslint.config.mjs to repo root
-  const backendConfig = path.resolve(__dirname, '../../eslint.config.mjs');
-  const targetConfig = path.join(repoPath, 'eslint.config.mjs');
-  try {
-    if (fs.existsSync(targetConfig)) fs.unlinkSync(targetConfig);
-    try {
-      fs.symlinkSync(backendConfig, targetConfig);
-    } catch {
-      fs.copyFileSync(backendConfig, targetConfig);
-    }
-  } catch (e) {
-    const errMsg = (e instanceof Error) ? e.message : String(e);
-    logAction('lint-error', { error: 'Failed to copy/symlink eslint.config.mjs', details: errMsg });
-    return res.status(500).json({ error: 'Failed to copy/symlink eslint.config.mjs' });
+  // Run ESLint from target directory with explicit config path
+  const backendConfigPath = path.resolve(__dirname, '../../eslint.config.mjs');
+  const absoluteLintTarget = path.resolve(lintTarget);
+  
+  // Determine what to lint
+  let lintPattern;
+  if (fs.statSync(absoluteLintTarget).isFile()) {
+    lintPattern = path.basename(absoluteLintTarget);
+  } else {
+    lintPattern = '**/*.{js,ts,vue}';
   }
-
-  // Use lintPath or default to 'src'
-  const relLintPath = lintPath || 'src';
-  const cmd = `npx eslint --format json "${relLintPath}"`;
-  logAction('lint-exec', { cmd, repoPath, lintTarget, cwd: repoPath });
-  exec(cmd, { cwd: repoPath }, (err, stdout) => {
+  
+  const cmd = `npx eslint --config "${backendConfigPath}" --format json "${lintPattern}"`;
+  logAction('lint-exec', { cmd, repoPath, lintTarget, cwd: absoluteLintTarget });
+  exec(cmd, { cwd: absoluteLintTarget }, (err, stdout) => {
     if (err && !stdout) {
       logAction('lint-error', { cmd, error: err.message });
       return res.status(500).json({ error: err.message });

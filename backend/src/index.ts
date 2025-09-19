@@ -6,6 +6,7 @@ import llmRouter from './routes/llm';
 import logfileRouter from './routes/logfile';
 import reposRouter from './routes/repos';
 import listFoldersRouter from './routes/listfolders';
+import eslintConfigRouter from './routes/eslintConfig';
 
 const app = express();
 app.use(express.json());
@@ -16,6 +17,7 @@ app.use('/api/llm', llmRouter);
 app.use('/api/logfile', logfileRouter);
 app.use('/api/repos', reposRouter);
 app.use('/api/listfolders', listFoldersRouter);
+app.use('/api/eslint-config', eslintConfigRouter);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

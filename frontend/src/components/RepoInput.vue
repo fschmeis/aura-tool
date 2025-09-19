@@ -5,48 +5,48 @@
   </form>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-export default defineComponent({
-  emits: ['repo-cloned', 'repo-error'],
-  props: {
-    checkRepoExists: Function,
-    confirmOverwrite: Function
-  },
-  setup(props, { emit }) {
-    const repoUrl = ref('');
-    const error = ref('');
-    async function cloneRepo() {
-      error.value = '';
-      if (!repoUrl.value) {
-        emit('repo-error', 'Please enter a repository URL.');
-        return;
-      }
-      let force = false;
-      if (typeof props.checkRepoExists === 'function' && await props.checkRepoExists(repoUrl.value)) {
-        if (!(typeof props.confirmOverwrite === 'function' && await props.confirmOverwrite(repoUrl.value))) {
-          emit('repo-error', 'Repository already exists. Cloning cancelled.');
-          return;
-        }
-        force = true;
-      }
-      try {
-        const res = await fetch('/api/clone', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repoUrl: repoUrl.value, force })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Clone failed');
-        emit('repo-cloned', { repoPath: data.repoPath, srcExists: data.srcExists });
-      } catch (e: any) {
-        emit('repo-error', e.message);
-      }
-    }
-    return { repoUrl, cloneRepo };
+const emit = defineEmits<{
+  (e: 'repo-cloned', payload: { repoPath: string; srcExists: boolean }): void,
+  (e: 'repo-error', message: string): void
+}>();
+
+const props = defineProps<{
+  checkRepoExists?: (repoUrl: string) => Promise<boolean> | boolean,
+  confirmOverwrite?: (repoUrl: string) => Promise<boolean> | boolean
+}>();
+
+const repoUrl = ref('');
+const error = ref('');
+
+async function cloneRepo() {
+  error.value = '';
+  if (!repoUrl.value) {
+    emit('repo-error', 'Please enter a repository URL.');
+    return;
   }
-});
+  let force = false;
+  if (typeof props.checkRepoExists === 'function' && await props.checkRepoExists(repoUrl.value)) {
+    if (!(typeof props.confirmOverwrite === 'function' && await props.confirmOverwrite(repoUrl.value))) {
+      emit('repo-error', 'Repository already exists. Cloning cancelled.');
+      return;
+    }
+    force = true;
+  }
+  try {
+    const res = await fetch('/api/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoUrl: repoUrl.value, force })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Clone failed');
+    emit('repo-cloned', { repoPath: data.repoPath, srcExists: data.srcExists });
+  } catch (e: any) {
+    emit('repo-error', e.message);
+  }
+}
+
 </script>
