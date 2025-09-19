@@ -33,15 +33,8 @@ router.post('/', (req, res) => {
     }
     try {
       const results = JSON.parse(stdout);
-      const ruleCounts: Record<string, number> = {};
-      results.forEach((r: any) => {
-        r.messages.forEach((m: any) => {
-          ruleCounts[m.ruleId] = (ruleCounts[m.ruleId] || 0) + 1;
-        });
-      });
-      const topRules = Object.entries(ruleCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-      logAction('lint-success', { cmd, repoPath, lintTarget, topRules });
-      res.json({ results, topRules });
+      logAction('lint-success', { cmd, repoPath, lintTarget });
+      res.json({ results });
     } catch (e) {
       logAction('lint-parse-error', { cmd, error: (e as Error).message });
       res.status(500).json({ error: 'ESLint output parse error' });

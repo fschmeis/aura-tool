@@ -3,8 +3,8 @@
     <div class="flex items-center justify-between mb-2 gap-2">
       <h2 class="font-bold text-base text-blue-900">Event Log</h2>
       <div class="flex gap-2">
-        <Button size="sm" variant="outline" @click="onOpenLogfile()">Open Log</Button>
-        <Button size="sm" variant="destructive" @click="onClearLog()">Clear Log</Button>
+        <Button size="sm" variant="outline" @click="handleOpenLogfile">Open Log</Button>
+        <Button size="sm" variant="destructive" @click="handleClearLog">Clear Log</Button>
       </div>
     </div>
     <div v-if="!events.length" class="text-gray-400">No events yet</div>
@@ -27,21 +27,23 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue';
+import { Button } from './ui/button';
+import { openLogfile } from '../utils/logUtils';
 
 const props = defineProps({
   events: {
     type: Array as PropType<Array<{ timestamp: string; message: string; type: string; details?: string }>>,
     required: true
-  },
-  onOpenLogfile: {
-    type: Function,
-    required: true
-  },
-  onClearLog: {
-    type: Function,
-    required: true
   }
 });
+
+async function handleOpenLogfile() {
+  await openLogfile();
+}
+
+async function handleClearLog() {
+  await fetch('/api/logfile', { method: 'DELETE' });
+}
 
 function eventClass(event: any) {
   if (event.type === 'error') return 'text-red-600';

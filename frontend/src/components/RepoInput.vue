@@ -1,52 +1,67 @@
 <template>
   <form @submit.prevent="cloneRepo" class="flex gap-2 items-center w-full min-w-80">
-    <Input v-model="repoUrl" type="text" placeholder="GitHub repository URL"/>
-    <Button type="submit" variant="default">Clone</Button>
+    <Input v-model="repoUrl" type="text" placeholder="GitHub repository URL" />
+    <Button type="submit" variant="default" :disabled="statusState.isLoading">
+      Clone
+    </Button>
   </form>
+  
+  <StatusDisplay 
+    :hasError="statusState.hasError"
+    :errorMessage="statusState.errorMessage"
+    :isLoading="statusState.isLoading"
+    :showSuccess="statusState.showSuccess"
+    :successMessage="statusState.successMessage"
+    loadingMessage="Cloning repository..."
+    @clearError="clearError"
+    @clearSuccess="clearSuccess"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-
-const emit = defineEmits<{
-  (e: 'repo-cloned', payload: { repoPath: string; srcExists: boolean }): void,
-  (e: 'repo-error', message: string): void
-}>();
-
-const props = defineProps<{
-  checkRepoExists?: (repoUrl: string) => Promise<boolean> | boolean,
-  confirmOverwrite?: (repoUrl: string) => Promise<boolean> | boolean
-}>();
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import StatusDisplay from './StatusDisplay.vue';
+import { useStatusHandling } from '../composables/useErrorHandling';
+import { useProjectManagement } from '../composables/useProjectManagement';
 
 const repoUrl = ref('');
-const error = ref('');
+const { statusState, handleAsyncOperation, clearError, clearSuccess } = useStatusHandling();
+const { addProjectFromRepo, checkProjectExists, confirmOverwrite } = useProjectManagement();
 
 async function cloneRepo() {
-  error.value = '';
   if (!repoUrl.value) {
-    emit('repo-error', 'Please enter a repository URL.');
     return;
   }
-  let force = false;
-  if (typeof props.checkRepoExists === 'function' && await props.checkRepoExists(repoUrl.value)) {
-    if (!(typeof props.confirmOverwrite === 'function' && await props.confirmOverwrite(repoUrl.value))) {
-      emit('repo-error', 'Repository already exists. Cloning cancelled.');
-      return;
+
+  const result = await handleAsyncOperation(async () => {
+    // Check if repo already exists
+    if (await checkProjectExists(repoUrl.value)) {
+      if (!(await confirmOverwrite(repoUrl.value))) {
+        throw new Error('Repository already exists. Cloning cancelled.');
+      }
     }
-    force = true;
-  }
-  try {
+
+    // Perform the clone
     const res = await fetch('/api/clone', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repoUrl: repoUrl.value, force })
+      body: JSON.stringify({ 
+        repoUrl: repoUrl.value, 
+        force: await checkProjectExists(repoUrl.value)
+      })
     });
+    
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Clone failed');
-    emit('repo-cloned', { repoPath: data.repoPath, srcExists: data.srcExists });
-  } catch (e: any) {
-    emit('repo-error', e.message);
+    
+    return { repoPath: data.repoPath, srcExists: data.srcExists };
+  }, undefined, 'Repository cloned successfully!');
+
+  if (result) {
+    await addProjectFromRepo(result);
+    repoUrl.value = ''; // Clear on success
   }
 }
-
 </script>

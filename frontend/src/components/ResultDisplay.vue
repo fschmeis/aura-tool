@@ -1,165 +1,210 @@
 
 <template>
   <div>
-    <!-- Overview Bar -->
-    <OverviewBar v-if="(isESLint && lintResult && lintResult.results) || (!isESLint && llmResult && llmResult.results)">
-      <template v-if="isESLint && lintResult && lintResult.results">
-        <span class="px-2 py-1 rounded bg-gray-100">Files: <span class="font-bold">{{ lintResult.results.length }}</span></span>
-        <span class="px-2 py-1 rounded bg-red-100 text-red-700">Errors: <span class="font-bold">{{ totalErrors }}</span></span>
-        <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-700">Warnings: <span class="font-bold">{{ totalWarnings }}</span></span>
-        <span class="px-2 py-1 rounded bg-green-100 text-green-700">Clean: <span class="font-bold">{{ cleanFiles.length }}</span></span>
-      </template>
-      <template v-else-if="!isESLint && llmResult && llmResult.results">
-        <span class="px-2 py-1 rounded bg-gray-100">Files: <span class="font-bold">{{ llmFilesCount }}</span></span>
-        <span class="px-2 py-1 rounded bg-red-100 text-red-700">Errors: <span class="font-bold">{{ llmErrors }}</span></span>
-        <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-700">Parse Errors: <span class="font-bold">{{ llmParseErrors }}</span></span>
-        <span class="px-2 py-1 rounded bg-green-100 text-green-700">Clean: <span class="font-bold">{{ llmClean }}</span></span>
-      </template>
-      <template #actions>
-        <button @click="openJson" class="px-3 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-semibold">Open JSON</button>
-      </template>
-    </OverviewBar>
-
-  <!-- Outer scrollable panel so long tables remain scrollable -->
-  <div class="overflow-y-auto max-h-[65vh] border rounded px-2 py-2">
-      <!-- Errors Table -->
-      <div v-if="isESLint && errorFiles.length" class="mb-6">
-        <div class="font-semibold text-red-700 mb-2">Files with Errors</div>
-        <table class="w-full text-xs border table-auto">
-          <thead class="bg-red-50">
-            <tr>
-              <th class="text-left p-2">File</th>
-              <th class="text-left p-2">Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="file in errorFiles" :key="file.filePath">
-              <td class="border-b p-2 font-mono">{{ file.filePath }}</td>
-              <td class="border-b p-2">
-                <div v-for="msg in file.messages.filter((m: ESLintMessage) => m.severity === 2)" :key="msg.ruleId + msg.line + msg.column" class="mb-1">
-                  <span class="font-bold text-red-700">{{ msg.ruleId }}</span>: {{ msg.message }} <span class="text-gray-500">(Line {{ msg.line }})</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Show results if we have them -->
+    <div v-if="(isESLint && lintResult && lintResult.results && lintResult.results.length > 0) || (!isESLint && llmResult && llmResult.results && llmResult.results.length > 0)" class="p-6">
+      <!-- Overview Bar -->
+      <div class="mb-6">
+        <OverviewBar>
+          <template v-if="isESLint && lintResult && lintResult.results">
+            <span class="px-3 py-1.5 rounded-md bg-gray-100 text-gray-700 text-sm font-medium">Files: <span class="font-bold">{{ lintResult.results.length }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-red-50 text-red-700 text-sm font-medium">Errors: <span class="font-bold">{{ totalErrors }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-yellow-50 text-yellow-700 text-sm font-medium">Warnings: <span class="font-bold">{{ totalWarnings }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-green-50 text-green-700 text-sm font-medium">Clean: <span class="font-bold">{{ cleanFiles.length }}</span></span>
+          </template>
+          <template v-else-if="!isESLint && llmResult && llmResult.results">
+            <span class="px-3 py-1.5 rounded-md bg-gray-100 text-gray-700 text-sm font-medium">Files: <span class="font-bold">{{ llmFilesCount }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-red-50 text-red-700 text-sm font-medium">Errors: <span class="font-bold">{{ llmErrors }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-yellow-50 text-yellow-700 text-sm font-medium">Parse Errors: <span class="font-bold">{{ llmParseErrors }}</span></span>
+            <span class="px-3 py-1.5 rounded-md bg-green-50 text-green-700 text-sm font-medium">Clean: <span class="font-bold">{{ llmClean }}</span></span>
+          </template>
+          <template #actions>
+            <button @click="openJson" class="px-4 py-2 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-medium transition-colors">
+              Open JSON
+            </button>
+          </template>
+        </OverviewBar>
       </div>
 
-      <!-- Warnings Table -->
-      <div v-if="isESLint && warningFiles.length" class="mb-6">
-        <div class="font-semibold text-yellow-700 mb-2">Files with Warnings</div>
-        <table class="w-full text-xs border table-auto">
-          <thead class="bg-yellow-50">
-            <tr>
-              <th class="text-left p-2">File</th>
-              <th class="text-left p-2">Warning</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="file in warningFiles" :key="file.filePath">
-              <td class="border-b p-2 font-mono">{{ file.filePath }}</td>
-              <td class="border-b p-2">
-                <div v-for="msg in file.messages.filter((m: ESLintMessage) => m.severity === 1)" :key="msg.ruleId + msg.line + msg.column" class="mb-1">
-                  <span class="font-bold text-yellow-700">{{ msg.ruleId }}</span>: {{ msg.message }} <span class="text-gray-500">(Line {{ msg.line }})</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Scrollable Results Content -->
+      <div class="overflow-y-auto max-h-[65vh] border rounded-lg bg-gray-50">
+        <!-- ESLint Results -->
+        <div v-if="isESLint">
+          <!-- Errors Table -->
+          <div v-if="errorFiles.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-red-50 rounded-t-lg">
+              <h3 class="font-semibold text-red-800 text-sm">Files with Errors</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Error</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="file in errorFiles" :key="file.filePath" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800 w-1/3">{{ file.filePath }}</td>
+                    <td class="py-3 px-4">
+                      <div v-for="msg in file.messages.filter((m: ESLintMessage) => m.severity === 2)" :key="msg.ruleId + msg.line + msg.column" class="mb-2 last:mb-0">
+                        <span class="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">{{ msg.ruleId }}</span>
+                        <span class="ml-2 text-sm">{{ msg.message }}</span>
+                        <span class="ml-2 text-xs text-gray-500">(Line {{ msg.line }})</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <!-- Clean Files Table -->
-      <div v-if="isESLint && cleanFiles.length" class="mb-6">
-        <div class="font-semibold text-green-700 mb-2">Clean Files</div>
-        <table class="w-full text-xs border table-auto">
-          <thead class="bg-green-50">
-            <tr>
-              <th class="text-left p-2">File</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="file in cleanFiles" :key="file.filePath">
-              <td class="border-b p-2 font-mono">{{ file.filePath }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          <!-- Warnings Table -->
+          <div v-if="warningFiles.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-yellow-50 rounded-t-lg">
+              <h3 class="font-semibold text-yellow-800 text-sm">Files with Warnings</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Warning</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="file in warningFiles" :key="file.filePath" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800 w-1/3">{{ file.filePath }}</td>
+                    <td class="py-3 px-4">
+                      <div v-for="msg in file.messages.filter((m: ESLintMessage) => m.severity === 1)" :key="msg.ruleId + msg.line + msg.column" class="mb-2 last:mb-0">
+                        <span class="inline-block px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">{{ msg.ruleId }}</span>
+                        <span class="ml-2 text-sm">{{ msg.message }}</span>
+                        <span class="ml-2 text-xs text-gray-500">(Line {{ msg.line }})</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <!-- LLM Results grouped similarly to ESLint -->
-      <div v-if="!isESLint && llmResult && llmResult.results" class="mb-6">
-        <div v-if="llmErrorsList.length" class="mb-6">
-          <div class="font-semibold text-red-700 mb-2">Files with Errors</div>
-          <table class="w-full text-xs border table-auto">
-            <thead class="bg-red-50">
-              <tr>
-                <th class="text-left p-2">File</th>
-                <th class="text-left p-2">Issue</th>
-                <th class="text-left p-2">NLOC</th>
-                <th class="text-left p-2">Cyclomatic</th>
-                <th class="text-left p-2">Cognitive</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in llmErrorsList" :key="r.file || r.filePath">
-                <td class="border-b p-2 font-mono">{{ (r.file || r.filePath || '').split('/').slice(-2).join('/') }}</td>
-                <td class="border-b p-2 text-red-700">{{ r.error || 'Error' }}</td>
-                <td class="border-b p-2 text-center">{{ r.nloc !== undefined ? r.nloc : '-' }}</td>
-                <td class="border-b p-2 text-center"><span :style="getComplexityColor(r.cyclomatic_complexity, 'cyclomatic')">{{ r.cyclomatic_complexity ?? '-' }}</span></td>
-                <td class="border-b p-2 text-center"><span :style="getComplexityColor(r.cognitive_complexity, 'cognitive')">{{ r.cognitive_complexity ?? '-' }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+          <!-- Clean Files Table -->
+          <div v-if="cleanFiles.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-green-50 rounded-t-lg">
+              <h3 class="font-semibold text-green-800 text-sm">Clean Files</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="file in cleanFiles" :key="file.filePath" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800">{{ file.filePath }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div v-if="llmParseList.length" class="mb-6">
-          <div class="font-semibold text-yellow-700 mb-2">Files with Parse Errors</div>
-          <table class="w-full text-xs border table-auto">
-            <thead class="bg-yellow-50">
-              <tr>
-                <th class="text-left p-2">File</th>
-                <th class="text-left p-2">Raw Response</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in llmParseList" :key="r.file || r.filePath">
-                <td class="border-b p-2 font-mono">{{ (r.file || r.filePath || '').split('/').slice(-2).join('/') }}</td>
-                <td class="border-b p-2 font-mono text-xs whitespace-pre-wrap">{{ r.raw_response || r.rawResponse || '' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <!-- LLM Results -->
+        <div v-else-if="!isESLint && llmResult && llmResult.results">
+          <!-- LLM Error Files -->
+          <div v-if="llmErrorsList.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-red-50 rounded-t-lg">
+              <h3 class="font-semibold text-red-800 text-sm">Files with Issues</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Issue</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">NLOC</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Cyclomatic</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Cognitive</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="r in llmErrorsList" :key="getFileKey(r)" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800">{{ getFileName(r) }}</td>
+                    <td class="py-3 px-4 text-red-700">{{ r.error || 'Error' }}</td>
+                    <td class="py-3 px-4 text-center">{{ r.nloc !== undefined ? r.nloc : '-' }}</td>
+                    <td class="py-3 px-4 text-center"><span :style="getComplexityColor(r.cyclomatic_complexity, 'cyclomatic')">{{ r.cyclomatic_complexity ?? '-' }}</span></td>
+                    <td class="py-3 px-4 text-center"><span :style="getComplexityColor(r.cognitive_complexity, 'cognitive')">{{ r.cognitive_complexity ?? '-' }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-        <div v-if="llmCleanList.length" class="mb-6">
-          <div class="font-semibold text-green-700 mb-2">Clean Files</div>
-          <table class="w-full text-xs border table-auto">
-            <thead class="bg-green-50">
-              <tr>
-                <th class="text-left p-2">File</th>
-                <th class="text-left p-2">Component</th>
-                <th class="text-left p-2">NLOC</th>
-                <th class="text-left p-2">Cyclomatic</th>
-                <th class="text-left p-2">Cognitive</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in llmCleanList" :key="r.file || r.filePath">
-                <td class="border-b p-2 font-mono">{{ (r.file || r.filePath || '').split('/').slice(-2).join('/') }}</td>
-                <td class="border-b p-2">{{ r.component || r.ruleId || 'N/A' }}</td>
-                <td class="border-b p-2 text-center">{{ r.nloc !== undefined ? r.nloc : '-' }}</td>
-                <td class="border-b p-2 text-center"><span :style="getComplexityColor(r.cyclomatic_complexity, 'cyclomatic')">{{ r.cyclomatic_complexity ?? '-' }}</span></td>
-                <td class="border-b p-2 text-center"><span :style="getComplexityColor(r.cognitive_complexity, 'cognitive')">{{ r.cognitive_complexity ?? '-' }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+          <!-- LLM Parse Errors -->
+          <div v-if="llmParseList.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-yellow-50 rounded-t-lg">
+              <h3 class="font-semibold text-yellow-800 text-sm">Files with Parse Errors</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Raw Response</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="r in llmParseList" :key="getFileKey(r)" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800">{{ getFileName(r) }}</td>
+                    <td class="py-3 px-4 font-mono text-xs whitespace-pre-wrap">{{ r.raw_response || r.rawResponse || '' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- LLM Clean Files -->
+          <div v-if="llmCleanList.length" class="bg-white m-4 rounded-lg border">
+            <div class="px-4 py-3 border-b bg-green-50 rounded-t-lg">
+              <h3 class="font-semibold text-green-800 text-sm">Clean Files</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                  <tr>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">File</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Component</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">NLOC</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Cyclomatic</th>
+                    <th class="text-left py-3 px-4 font-medium text-gray-700">Cognitive</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="r in llmCleanList" :key="getFileKey(r)" class="hover:bg-gray-50">
+                    <td class="py-3 px-4 font-mono text-xs text-gray-800">{{ getFileName(r) }}</td>
+                    <td class="py-3 px-4">{{ r.component || r.ruleId || 'N/A' }}</td>
+                    <td class="py-3 px-4 text-center">{{ r.nloc !== undefined ? r.nloc : '-' }}</td>
+                    <td class="py-3 px-4 text-center"><span :style="getComplexityColor(r.cyclomatic_complexity, 'cyclomatic')">{{ r.cyclomatic_complexity ?? '-' }}</span></td>
+                    <td class="py-3 px-4 text-center"><span :style="getComplexityColor(r.cognitive_complexity, 'cognitive')">{{ r.cognitive_complexity ?? '-' }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="!isESLint && (!llmResult || !llmResult.results)" class="flex items-center justify-center flex-1">
-      <span class="w-full text-center text-gray-400 italic">No analysis results yet.</span>
-    </div>
-    <div v-if="isESLint && (!lintResult || !lintResult.results)" class="flex items-center justify-center flex-1">
-      <span class="w-full text-center text-gray-400 italic">No analysis results yet.</span>
+    <!-- No results message - only show when there are no results -->
+    <div v-else class="flex items-center justify-center py-16">
+      <div class="text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 class="mt-4 text-sm font-medium text-gray-600">No analysis results yet</h3>
+        <p class="mt-1 text-sm text-gray-400">Run an analysis to see results here</p>
+      </div>
     </div>
   </div>
 </template>
@@ -167,6 +212,7 @@
 <script setup lang="ts">
 import { computed, PropType } from 'vue';
 import OverviewBar from './OverviewBar.vue';
+import type { ESLintResult, LLMResult, LLMFileResult, ESLintFileResult, ESLintMessage } from '../types/results';
 
 function openJson() {
   // Choose which JSON to open: ESLint results or LLM results
@@ -185,12 +231,8 @@ function openJson() {
 }
 
 const props = defineProps({
-  lintResult: Object as PropType<any>,
-  llmResult: Object as PropType<any>,
-  viewMode: {
-    type: String as PropType<'table' | 'json'>,
-    default: 'table'
-  },
+  lintResult: Object as PropType<ESLintResult>,
+  llmResult: Object as PropType<LLMResult>,
   resultLabel: {
     type: String,
     default: ''
@@ -202,21 +244,6 @@ const props = defineProps({
 });
 
 // ESLint summary and grouping logic
-type ESLintMessage = {
-  ruleId: string;
-  severity: number;
-  message: string;
-  line: number;
-  column: number;
-};
-type ESLintFileResult = {
-  filePath: string;
-  messages: ESLintMessage[];
-  errorCount: number;
-  fatalErrorCount: number;
-  warningCount: number;
-};
-
 const errorFiles = computed(() => {
   if (!props.lintResult?.results) return [];
   return props.lintResult.results.filter((f: ESLintFileResult) => (f.errorCount > 0 || f.fatalErrorCount > 0));
@@ -239,18 +266,18 @@ const totalWarnings = computed(() => {
 });
 
 // LLM grouping and counts (to mirror ESLint overview)
-const llmFiles = computed(() => {
+const llmFiles = computed((): LLMFileResult[] => {
   return props.llmResult && Array.isArray(props.llmResult.results) ? props.llmResult.results : [];
 });
 const llmFilesCount = computed(() => llmFiles.value.length);
-const llmErrorsList = computed(() => llmFiles.value.filter((r: any) => r.error));
-const llmParseList = computed(() => llmFiles.value.filter((r: any) => r.parsing_error));
-const llmCleanList = computed(() => llmFiles.value.filter((r: any) => !r.error && !r.parsing_error));
+const llmErrorsList = computed(() => llmFiles.value.filter((r: LLMFileResult) => r.error));
+const llmParseList = computed(() => llmFiles.value.filter((r: LLMFileResult) => r.parsing_error));
+const llmCleanList = computed(() => llmFiles.value.filter((r: LLMFileResult) => !r.error && !r.parsing_error));
 const llmErrors = computed(() => llmErrorsList.value.length);
 const llmParseErrors = computed(() => llmParseList.value.length);
 const llmClean = computed(() => llmCleanList.value.length);
 
-function getComplexityColor(value: number, type: 'cyclomatic' | 'cognitive' = 'cyclomatic') {
+function getComplexityColor(value: number | undefined, type: 'cyclomatic' | 'cognitive' = 'cyclomatic') {
   if (value === undefined || value === null) return 'text-gray-500';
   if (type === 'cyclomatic') {
     if (value <= 5) return 'text-green-600';
@@ -261,5 +288,17 @@ function getComplexityColor(value: number, type: 'cyclomatic' | 'cognitive' = 'c
     if (value <= 15) return 'text-yellow-600';
     return 'text-red-600';
   }
+}
+
+function getFileName(result: LLMFileResult): string {
+  const filePath = result.file || result.filePath || '';
+  if (typeof filePath === 'string') {
+    return filePath.split('/').slice(-2).join('/');
+  }
+  return String(filePath);
+}
+
+function getFileKey(result: LLMFileResult): string {
+  return result.file || String(result.filePath) || Math.random().toString();
 }
 </script>

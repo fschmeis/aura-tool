@@ -10,13 +10,6 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const router = Router();
 
-// [UNUSED] OpenAI configuration - replaced by Azure OpenAI config below
-// const OPENAI_CONFIG = {
-//   baseURL: 'https://openrouter.ai/api/v1',
-//   apiKey: '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',
-//   model: 'deepseek/deepseek-chat-v3.1:free'
-// };
-
 // Azure OpenAI configuration (from .env)
 const AZURE_OPENAI_CONFIG = {
   url: process.env.AZURE_OPENAI_URL,
@@ -50,27 +43,6 @@ async function getFilesFromPattern(dir: string, patterns: string[], excludePatte
   
   return uniqueFiles;
 }
-
-
-// [UNUSED] Old OpenAI call function
-// async function callOpenAI(prompt: string): Promise<any> {
-//   const response = await fetch(`${OPENAI_CONFIG.baseURL}/chat/completions`, {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
-//       'Content-Type': 'application/json'
-//     },
-//     body: JSON.stringify({
-//       model: OPENAI_CONFIG.model,
-//       messages: [{ role: 'user', content: prompt }],
-//       temperature: 0.1
-//     })
-//   });
-//   if (!response.ok) {
-//     throw new Error(`OpenAI API error: ${response.statusText}`);
-//   }
-//   return response.json();
-// }
 
 // Azure OpenAI call function
 async function callAzureOpenAI(prompt: string): Promise<any> {

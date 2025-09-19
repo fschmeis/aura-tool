@@ -17,8 +17,35 @@ export interface LLMResult {
   [key: string]: unknown;
 }
 
+export interface ESLintMessage {
+  ruleId: string;
+  severity: number; // 1 = warning, 2 = error
+  message: string;
+  line: number;
+  column: number;
+  nodeType?: string;
+  messageId?: string;
+  endLine?: number;
+  endColumn?: number;
+  fix?: {
+    range: [number, number];
+    text: string;
+  };
+}
+
+export interface ESLintFileResult {
+  filePath: string;
+  messages: ESLintMessage[];
+  suppressedMessages: ESLintMessage[];
+  errorCount: number;
+  fatalErrorCount: number;
+  warningCount: number;
+  fixableErrorCount: number;
+  fixableWarningCount: number;
+  usedDeprecatedRules: string[];
+}
+
 export interface ESLintResult {
-  results: any[]; // Consider refining with an ESLint JSON schema later
-  topRules: Array<[string, number]>;
+  results: ESLintFileResult[];
   error?: string;
 }

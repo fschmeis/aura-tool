@@ -1,9 +1,9 @@
 <template>
-  <div class="mb-4 flex items-center">
-    <div class="flex-1 text-sm">
+  <div class="flex items-center justify-between p-4 bg-white border-b">
+    <div class="flex items-center gap-4 flex-wrap">
       <slot />
     </div>
-    <div class="ml-2">
+    <div class="flex items-center gap-2">
       <slot name="actions" />
     </div>
   </div>
